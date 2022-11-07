@@ -1,8 +1,14 @@
 #include <HomeSpan.h>
 
 #include "relay.h"
-#include "sensor.h"
-#include "neopixel.h"
+#include "oled_display.h"
+#include "htu21dSensor.h"
+#include "logIntoSupabase.h"
+
+#include <math.h>
+
+#include "Simpletimer.h"
+Simpletimer logIntoSupabaseTimer;
 
 // enums to define some constants
 enum TargetHeaterStates {
@@ -23,21 +29,29 @@ enum TemperatureDisplayUnits {
   FAHRENHEIT = 1 // we disable this state since we are not heathens
 };
 
+/*float floatOnePointRound(float value) {
+  return ((float)((int)(value * 10))) / 10;
+};*/
+
+float roundIntoHalf(float value) {
+  return round(value * 2) / 2;
+};
+
 // class ties the heater relay operation to a characteristic
 class CurrentHeaterStatus: public Characteristic::CurrentHeatingCoolingState {
-private:
-  // heater relay
-  Relay heater;
+  private:
+    // heater relay
+    Relay heater;
 
-public:
-  // constructor for the class
-  CurrentHeaterStatus(int heaterPin): Characteristic::CurrentHeatingCoolingState(IDLE), heater(heaterPin) {}
+  public:
+    // constructor for the class
+    CurrentHeaterStatus(int heaterPin): Characteristic::CurrentHeatingCoolingState(IDLE), heater(heaterPin) {}
 
-  template <typename T>
-  void setVal(T value, bool notify = true) {
-    heater.setState(value);
-    Characteristic::CurrentHeatingCoolingState::setVal(value, notify);
-  }
+    template <typename T>
+    void setVal(T value, bool notify = true) {
+      heater.setState(value);
+      Characteristic::CurrentHeatingCoolingState::setVal(value, notify);
+    }
 };
 
 // the class that contains the logic for running the
@@ -45,8 +59,7 @@ public:
 class Thermostat: public Service::Thermostat {
 private:
   // setup the sensor, heater relay, and status LED
-  TemperatureSensor sensor;
-  NeoPixel status;
+  HTUTemperatureSensor sensor;
 
   // temperature threshold, determines the degree
   // to which heater state change is sensitive to
@@ -94,10 +107,10 @@ public:
     temperatureSensePeriod(sensePeriod)
   {
     // get an initial reading for current temperature
-    currentExpAvgTemp = sensor.readTemp();
+    currentExpAvgTemp = roundIntoHalf(sensor.readTemp());
 
     // initialise the status to default
-    status.setColor(WHITE);
+    //status.setColor(WHITE);
 
     // initialise the characteristics
     currentHeaterState = new CurrentHeaterStatus(heater);
@@ -128,7 +141,7 @@ public:
   }
 
   // mark the state to be updated
-  // so the next time loop runs it 
+  // so the next time loop runs it
   // doesn't wait for timer period
   virtual bool update() override {
     wasUpdated = targetHeaterState->updated() ||
@@ -137,6 +150,10 @@ public:
                  heatingThresholdTemperature->updated();
     return true;
   }
+
+  OLEDDisplay myOLEDdisplay;
+
+  LogIntoSupabase mySupabaseLogger;
 
   // update the state of the thermostat
   virtual void loop() override {
@@ -189,7 +206,7 @@ private:
 
     // decide the status color of the LED
     // based on currently set config
-    color_t color;
+    /*color_t color;
     switch (targetState) {
       case OFF:
         color = PURPLE;
@@ -200,11 +217,17 @@ private:
       case AUTO:
       default:
         color = statusColor(currentTemp, minTemp, maxTemp);
+    }*/
+
+    myOLEDdisplay.setTempAndStatus(currentTemp, targetTemp, minTemp, maxTemp, targetState, heaterState);
+
+    if (logIntoSupabaseTimer.timer(60000)) {
+      mySupabaseLogger.logStatusAndTemp(targetState, heaterState, currentTemp);
     }
 
     // set the color of the status LED and
     // toggle the state of the heater
-    status.setColor(color);
+    // status.setColor(color);
     if (toggle) {
       currentHeaterState->setVal(!heaterState);
     }
@@ -218,10 +241,12 @@ private:
 
     // validate for correct seaming reading
     // and accumulate if so
-    if (-10 <= reading && reading <= 40) {
+    /*if (-10 <= reading && reading <= 40) {
       currentExpAvgTemp *= tempExpAlpha;
       currentExpAvgTemp += (1 - tempExpAlpha) * reading;
-    }
+    }*/
+
+    currentExpAvgTemp = roundIntoHalf(reading);
   }
 
   // update the current temperature from accumulated readings
@@ -238,7 +263,7 @@ private:
   }
 
   // return the color of the status LED
-  color_t statusColor(float currentTemp, float minTemp, float maxTemp) {
+  /*color_t statusColor(float currentTemp, float minTemp, float maxTemp) {
     if (currentTemp < (minTemp + tempThreshold)) {
       return BLUE;
     } else if (currentTemp > (maxTemp - tempThreshold)) {
@@ -246,5 +271,5 @@ private:
     } else {
       return GREEN;
     }
-  }
+  }*/
 };

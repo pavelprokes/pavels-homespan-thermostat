@@ -2,26 +2,20 @@
 
 // define the constants for the thermostat
 #define NAME         "Thermostat"
-#define MANUFACTURER "Shubham Chaudhary"
+#define MANUFACTURER "Shubham Chaudhary (Pavel Prokes)"
 #define MODEL        "Thermostat"
 #define SERIAL_NUM   "0x0000001"
-#define FIRMWARE     "v1.0.0"
+#define FIRMWARE     "v1.1.0"
 
 // the pin on which the heater relay and
 // temperature sensor is connected
-#define HEATER_PIN 10
-#define TEMP_PIN   8
-
-// constraint the TEMP_PIN to be between 3 and 10
-// since we can only use ADC1 as ADC2 is occupied
-// during Wi-Fi usage
-#if TEMP_PIN < 3 || TEMP_PIN > 10
-#error "Temperature sensor MUST be on ADC1 as ADC2 is occupied during Wi-Fi."
-#endif
+#define HEATER_PIN 5
+#define TEMP_PIN   A0
+#define LED_BUILTIN 25
 
 // threshold determines how sensitive
 // the heater is to the current temperature
-#define TEMP_THRESHOLD 0.1
+#define TEMP_THRESHOLD 0.5
 
 // alpha for exponential averaging of
 // temperature readings, more is smoother
@@ -31,7 +25,7 @@
 #define STATUS_PERIOD 5000
 
 // period to scan for temperature in milliseconds
-#define SENSE_PERIOD 50
+#define SENSE_PERIOD 1000
 
 // uncomment these lines to define your own custom parameters
 // #define WIFI_SSID             "Your Wi-Fi SSID"
@@ -48,11 +42,13 @@ void setup() {
   // setup serial
   Serial.begin(115200);
 
+  //homeSpan.setLogLevel(1);
+
   // setup span device
   homeSpan.enableOTA();
   homeSpan.setStatusPin(LED_BUILTIN);
   homeSpan.setHostNameSuffix("");
-  homeSpan.setSketchVersion("1.0.0");
+  homeSpan.setSketchVersion("1.0.1");
 
 #if defined(WIFI_SSID) && defined(WIFI_PASSWORD)
   // if Wi-Fi credentials are defined, supply
